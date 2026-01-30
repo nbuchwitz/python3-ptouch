@@ -9,10 +9,9 @@ from PIL import Image
 
 from ptouch.config import TapeConfig
 from ptouch.label import Label
-from ptouch.printer import LabelPrinter, MediaType
+from ptouch.printer import MediaType
 from ptouch.printers import PTE550W, PTP750W, PTP900
 from ptouch.tape import (
-    HeatShrinkTape,
     LaminatedTape6mm,
     LaminatedTape12mm,
     LaminatedTape24mm,
