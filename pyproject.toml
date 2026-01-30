@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2024-2026 Nicolai Buchwitz <nb@tipi-net.de>
+#
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[project]
+name = "ptouch"
+description = "Python library for Brother P-touch label printers"
+version = "1.0.0"
+readme = "README.md"
+authors = [{ name = "Nicolai Buchwitz", email = "nb@tipi-net.de" }]
+maintainers = [{ name = "Nicolai Buchwitz", email = "nb@tipi-net.de" }]
+keywords = ["brother", "p-touch", "label", "printer", "raster"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Printing",
+]
+dependencies = [
+    "Pillow",
+    "packbits",
+]
+requires-python = ">= 3.11"
+
+[project.optional-dependencies]
+usb = ["pyusb"]
+dev = ["ruff", "mypy"]
+
+[project.scripts]
+ptouch = "ptouch.__main__:main"
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+lint.select = [
+    "ANN", # flake8-annotations
+    "B",   # flake8-bugbear
+    "D",   # pydocstyle
+    "E",   # pycodestyle
+    "F",   # Pyflakes
+    "Q",   # flake8-quotes
+]
+lint.ignore = [
+    "D203",   # incompatible with D211
+    "D213",   # incompatible with D212
+    "D107",   # undocumented-public-init
+]
+
+[tool.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
