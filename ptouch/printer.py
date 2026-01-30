@@ -435,6 +435,112 @@ class LabelPrinter(ABC):
         control_seq += self._cmd_set_compression(tiff_compression=self.use_compression)
         return control_seq
 
+    def _build_page_control_sequence(
+        self,
+        num_lines: int,
+        margin: int,
+        tape_width_mm: int,
+        high_resolution: bool,
+        is_first_page: bool,
+        auto_cut: bool = True,
+        half_cut: bool = False,
+        chain_printing: bool = False,
+    ) -> bytes:
+        """Build control sequence for a single page in a multi-page job.
+
+        Parameters
+        ----------
+        num_lines : int
+            Number of raster lines in the image.
+        margin : int
+            Margin in dots (normal resolution).
+        tape_width_mm : int
+            Tape width in millimeters.
+        high_resolution : bool
+            Whether to use high resolution mode.
+        is_first_page : bool
+            Whether this is the first page (needs invalidate/initialize).
+        auto_cut : bool, default True
+            Enable automatic cutting.
+        half_cut : bool, default False
+            Enable half-cut mode.
+        chain_printing : bool, default False
+            Enable chain printing (no cut after label).
+
+        Returns
+        -------
+        bytes
+            Control sequence bytes for this page.
+        """
+        # High resolution mode doubles lines and margin
+        if high_resolution:
+            num_lines *= 2
+            margin *= 2
+
+        control_seq = b""
+
+        # Only first page gets invalidate and initialize
+        if is_first_page:
+            control_seq += self._cmd_invalidate_and_initialize()
+
+        control_seq += self._cmd_raster_mode()
+        control_seq += self._additional_control_commands()
+        # Use NO_MEDIA to let printer auto-detect tape type
+        media_type = MediaType.NO_MEDIA
+        control_seq += self._cmd_print_information(num_lines, media_type, tape_width_mm)
+        control_seq += self._cmd_mode_settings(auto_cut=auto_cut)
+        if auto_cut and self.SUPPORTS_PAGE_NUMBER_CUTS:
+            control_seq += self._cmd_page_number_cuts(pages=1)
+        control_seq += self._cmd_advanced_mode_settings(
+            half_cut=half_cut,
+            chain_printing=chain_printing,
+            high_resolution=high_resolution,
+        )
+        control_seq += self._cmd_margin(margin)
+        control_seq += self._cmd_set_compression(tiff_compression=self.use_compression)
+        return control_seq
+
+    def _build_raster_data(self, raster: bytes, num_lines: int, high_resolution: bool) -> bytes:
+        """Build raster data bytes from raw raster.
+
+        Parameters
+        ----------
+        raster : bytes
+            Raw raster data from _generate_raster.
+        num_lines : int
+            Number of raster lines.
+        high_resolution : bool
+            Whether to use high resolution mode.
+
+        Returns
+        -------
+        bytes
+            Formatted raster data for the printer.
+        """
+        repeat_count = 2 if high_resolution else 1
+
+        raster_data = b""
+        for i in range(num_lines):
+            line_data = raster[i * self.BYTES_PER_LINE : (i + 1) * self.BYTES_PER_LINE]
+
+            for _ in range(repeat_count):
+                if self.use_compression:
+                    # TIFF/packbits compression
+                    if line_data == b"\x00" * self.BYTES_PER_LINE:
+                        raster_data += b"\x5a"  # Z - Zero raster graphics
+                    else:
+                        compressed_line = packbits.encode(line_data)
+                        raster_data += b"\x47"  # G - Raster graphics transfer
+                        raster_data += struct.pack("<H", len(compressed_line))
+                        raster_data += compressed_line
+                else:
+                    # No compression - send all lines including empty ones
+                    raster_data += b"\x47"  # G - Raster graphics transfer
+                    raster_data += struct.pack("<H", self.BYTES_PER_LINE)
+                    raster_data += line_data
+
+        return raster_data
+
     def print(
         self,
         label: Label,
@@ -495,32 +601,122 @@ class LabelPrinter(ABC):
             num_lines, margin_dots, label.tape.width_mm, high_res
         )
 
-        # Build raster data
-        # In high resolution mode, each line is sent twice for doubled horizontal resolution
-        repeat_count = 2 if high_res else 1
-
-        raster_data = b""
-        for i in range(num_lines):
-            line_data = raster[i * self.BYTES_PER_LINE : (i + 1) * self.BYTES_PER_LINE]
-
-            for _ in range(repeat_count):
-                if self.use_compression:
-                    # TIFF/packbits compression
-                    if line_data == b"\x00" * self.BYTES_PER_LINE:
-                        raster_data += b"\x5a"  # Z - Zero raster graphics
-                    else:
-                        compressed_line = packbits.encode(line_data)
-                        raster_data += b"\x47"  # G - Raster graphics transfer
-                        raster_data += struct.pack("<H", len(compressed_line))
-                        raster_data += compressed_line
-                else:
-                    # No compression - send all lines including empty ones
-                    raster_data += b"\x47"  # G - Raster graphics transfer
-                    raster_data += struct.pack("<H", self.BYTES_PER_LINE)
-                    raster_data += line_data
+        raster_data = self._build_raster_data(raster, num_lines, high_res)
 
         # Send all data to printer in one write to avoid TCP fragmentation issues
         all_data = control_seq + raster_data + b"\x1a" + self._cmd_invalidate_and_initialize()
         self.connection.write(all_data)
 
         logger.info("Sent all data to printer.")
+
+    def print_multi(
+        self,
+        labels: list[Label],
+        margin_mm: float | None = None,
+        high_resolution: bool | None = None,
+        half_cut: bool = True,
+    ) -> None:
+        """Print multiple labels with cuts between and after last.
+
+        This method prints multiple labels in sequence, with configurable
+        cutting behavior between labels.
+
+        Parameters
+        ----------
+        labels : list[Label]
+            List of labels to print. All labels must use the same tape type.
+        margin_mm : float or None, optional
+            Margin in millimeters. Valid range: MIN_MARGIN_MM to MAX_MARGIN_MM.
+            If None, uses DEFAULT_MARGIN_MM.
+        high_resolution : bool or None, optional
+            Whether to use high resolution mode. If None, uses printer's setting.
+        half_cut : bool, default True
+            If True, use half-cuts between labels (saves tape).
+            If False, use full cuts between all labels.
+
+        Raises
+        ------
+        ValueError
+            If labels list is empty, tape types don't match, or tape is unsupported.
+        """
+        if not labels:
+            raise ValueError("At least one label is required")
+
+        # Verify all labels use the same tape type
+        tape_type = type(labels[0].tape)
+        for i, label in enumerate(labels[1:], start=2):
+            if not isinstance(label.tape, tape_type):
+                raise ValueError(
+                    f"All labels must use the same tape type. "
+                    f"Label 1 uses {tape_type.__name__}, label {i} uses {type(label.tape).__name__}"
+                )
+
+        # Resolve settings
+        high_res = self.high_resolution if high_resolution is None else high_resolution
+        margin_mm = margin_mm if margin_mm is not None else self.DEFAULT_MARGIN_MM
+        if not self.MIN_MARGIN_MM <= margin_mm <= self.MAX_MARGIN_MM:
+            raise ValueError(
+                f"Margin must be between {self.MIN_MARGIN_MM} and {self.MAX_MARGIN_MM} mm, "
+                f"got {margin_mm}"
+            )
+        margin_dots = self._mm_to_dots(margin_mm)
+
+        tape_config = self.get_tape_config(labels[0].tape)
+        tape_width_mm = labels[0].tape.width_mm
+
+        cut_type = "half-cut" if half_cut else "full-cut"
+        logger.info(f"Printing {len(labels)} labels with {cut_type} between")
+        logger.info(f"Tape: {tape_width_mm}mm")
+        logger.info(f"Margin: {margin_mm}mm ({margin_dots} dots)")
+        logger.info(f"Compression: {'ON (TIFF)' if self.use_compression else 'OFF'}")
+        if high_res:
+            logger.info(f"Resolution: High ({self.RESOLUTION_DPI}x{self.RESOLUTION_DPI_HIGH} dpi)")
+        else:
+            logger.info(f"Resolution: Standard ({self.RESOLUTION_DPI}x{self.RESOLUTION_DPI} dpi)")
+
+        all_data = b""
+
+        for idx, label in enumerate(labels):
+            is_first = idx == 0
+            is_last = idx == len(labels) - 1
+
+            # Prepare label
+            label.prepare(tape_config.print_pins)
+            image = label.image
+            img_1bit = self._prepare_image(image, tape_config)
+            raster = self._generate_raster(img_1bit, tape_config)
+            num_lines = image.width
+
+            logger.info(f"Label {idx + 1}/{len(labels)}: {image.size}, {num_lines} columns")
+
+            # Build control sequence for this page
+            # Half-cut mode: auto_cut=OFF, half_cut=ON → half-cuts between, full cut after last
+            # Full-cut mode: auto_cut=ON, half_cut=OFF → full cuts between all labels
+            control_seq = self._build_page_control_sequence(
+                num_lines=num_lines,
+                margin=margin_dots,
+                tape_width_mm=tape_width_mm,
+                high_resolution=high_res,
+                is_first_page=is_first,  # Only first label gets invalidate/init
+                auto_cut=not half_cut,  # ON for full-cut mode, OFF for half-cut mode
+                half_cut=half_cut,  # ON for half-cuts between labels
+                chain_printing=False,  # OFF (bit 3 set) - each page independent
+            )
+
+            raster_data = self._build_raster_data(raster, num_lines, high_res)
+
+            all_data += control_seq + raster_data
+
+            # FF (0x0C) for non-last pages, Control-Z (0x1A) for last page
+            if is_last:
+                all_data += b"\x1a"
+            else:
+                all_data += b"\x0c"
+
+        # End with invalidate and initialize (same as single print)
+        all_data += self._cmd_invalidate_and_initialize()
+
+        # Send all data to printer in one write
+        self.connection.write(all_data)
+
+        logger.info(f"Sent all data for {len(labels)} labels to printer.")

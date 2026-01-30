@@ -6,6 +6,7 @@
 
 import argparse
 import sys
+from typing import Sequence
 
 from PIL import Image
 
@@ -71,6 +72,10 @@ Examples:
   python -m ptouch "Hello World" --host 192.168.1.100 --printer P900 \\
       --tape-width 36 --font /path/to/font.ttf
 
+  # Print multiple labels (half-cut between, full cut after last)
+  python -m ptouch "Label 1" "Label 2" "Label 3" --host 192.168.1.100 \\
+      --printer E550W --tape-width 12 --font /path/to/font.ttf
+
   # Print image label via USB
   python -m ptouch --image logo.png --usb --printer E550W --tape-width 12
 
@@ -83,8 +88,8 @@ Examples:
     # Content (text or image)
     parser.add_argument(
         "text",
-        nargs="?",
-        help="Text to print (required unless --image is used)",
+        nargs="*",
+        help="Text to print. Multiple strings create multiple labels with half-cut between.",
     )
     parser.add_argument(
         "--image",
@@ -166,8 +171,52 @@ Examples:
         action="store_true",
         help="Disable TIFF compression",
     )
+    parser.add_argument(
+        "--full-cut",
+        action="store_true",
+        help="Use full cuts between labels instead of half-cuts (default: half-cut)",
+    )
 
     return parser.parse_args()
+
+
+def create_text_labels(
+    texts: Sequence[str],
+    tape_class: type,
+    font_path: str,
+    font_size: int | None,
+    align: Align,
+) -> list[TextLabel]:
+    """Create TextLabel instances for multiple text strings.
+
+    Parameters
+    ----------
+    texts : Sequence[str]
+        List of text strings to create labels for.
+    tape_class : type
+        Tape class to use for all labels.
+    font_path : str
+        Path to TrueType font file.
+    font_size : int or None
+        Font size in pixels, or None for auto.
+    align : Align
+        Text alignment flags.
+
+    Returns
+    -------
+    list[TextLabel]
+        List of TextLabel instances.
+    """
+    return [
+        TextLabel(
+            text,
+            tape_class,
+            font_path=font_path,
+            font_size=font_size,
+            align=align,
+        )
+        for text in texts
+    ]
 
 
 def main() -> int:
@@ -205,10 +254,10 @@ def main() -> int:
         high_resolution=args.high_resolution,
     )
 
-    # Create label
+    # Create label(s)
     if args.image:
         image = Image.open(args.image)
-        label = Label(image, tape_class)
+        labels = [Label(image, tape_class)]
     else:
         # Parse alignment
         h_align = ALIGN_HORIZONTAL.get(args.align[0].lower())
@@ -229,7 +278,7 @@ def main() -> int:
 
         align = h_align | v_align
 
-        label = TextLabel(
+        labels = create_text_labels(
             args.text,
             tape_class,
             font_path=args.font,
@@ -238,14 +287,28 @@ def main() -> int:
         )
 
     # Print
-    print(f"Printing to {printer_class.__name__} via {'network' if args.host else 'USB'}...")
+    num_labels = len(labels)
+    use_half_cut = not args.full_cut
+    conn_type = "network" if args.host else "USB"
+    print(f"Printing {num_labels} label(s) to {printer_class.__name__} via {conn_type}...")
     print(
         f"Tape: {args.tape_width}mm, High-res: {args.high_resolution}, "
         f"Compression: {use_compression}"
     )
+    if num_labels > 1:
+        cut_type = "half-cut" if use_half_cut else "full-cut"
+        print(f"Using {cut_type} between labels, full cut after last label.")
 
     try:
-        printer.print(label, margin_mm=args.margin, high_resolution=args.high_resolution)
+        if num_labels == 1:
+            printer.print(labels[0], margin_mm=args.margin, high_resolution=args.high_resolution)
+        else:
+            printer.print_multi(
+                labels,
+                margin_mm=args.margin,
+                high_resolution=args.high_resolution,
+                half_cut=use_half_cut,
+            )
         print("Done.")
         return 0
     except Exception as e:
