@@ -240,7 +240,8 @@ def main() -> int:
     # Print
     print(f"Printing to {printer_class.__name__} via {'network' if args.host else 'USB'}...")
     print(
-        f"Tape: {args.tape_width}mm, High-resolution: {args.high_resolution}, Compression: {use_compression}"
+        f"Tape: {args.tape_width}mm, High-res: {args.high_resolution}, "
+        f"Compression: {use_compression}"
     )
 
     try:
