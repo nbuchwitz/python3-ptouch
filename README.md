@@ -11,6 +11,7 @@ A Python library for Brother P-touch label printers.
 - Network (TCP/IP) and USB connections
 - Text labels with customizable fonts and alignment
 - Image label printing
+- Multi-label printing with half-cut support (saves tape)
 - High resolution mode support
 - TIFF compression for efficient data transfer
 
@@ -110,7 +111,16 @@ Then add the corresponding `TapeConfig` entries to each printer class that suppo
 
 ```bash
 # Print text label via network
-python -m ptouch "Hello World" --host 192.168.1.100 --printer P900 --tape-width 36 --font /path/to/font.ttf
+python -m ptouch "Hello World" --host 192.168.1.100 --printer P900 \
+    --tape-width 36 --font /path/to/font.ttf
+
+# Print multiple labels (half-cut between, full cut after last)
+python -m ptouch "Label 1" "Label 2" "Label 3" --host 192.168.1.100 \
+    --printer P900 --tape-width 12 --font /path/to/font.ttf
+
+# Print multiple labels with full cuts between each
+python -m ptouch "Label 1" "Label 2" --full-cut --host 192.168.1.100 \
+    --printer P900 --tape-width 12 --font /path/to/font.ttf
 
 # Print image label via USB
 python -m ptouch --image logo.png --usb --printer E550W --tape-width 12
@@ -177,6 +187,29 @@ label = TextLabel(
 printer.print(label)
 ```
 
+#### Multi-Label Printing
+
+Print multiple labels in a single job with half-cuts between labels to save tape:
+
+```python
+from ptouch import ConnectionNetwork, PTP900, TextLabel, LaminatedTape12mm
+
+connection = ConnectionNetwork("192.168.1.100")
+printer = PTP900(connection)
+
+labels = [
+    TextLabel("Label 1", LaminatedTape12mm, font_path="/path/to/font.ttf"),
+    TextLabel("Label 2", LaminatedTape12mm, font_path="/path/to/font.ttf"),
+    TextLabel("Label 3", LaminatedTape12mm, font_path="/path/to/font.ttf"),
+]
+
+# Half-cuts between labels (default), full cut after last
+printer.print_multi(labels)
+
+# Or use full cuts between all labels
+printer.print_multi(labels, half_cut=False)
+```
+
 ### Alignment Options
 
 Text alignment can be combined using the `|` operator:
@@ -199,10 +232,11 @@ align = Align.CENTER  # centered both ways
 usage: python -m ptouch [-h] [--image FILE] (--host IP | --usb) --printer {E550W,P750W,P900,P900W,P950NW}
                         --tape-width {6,9,12,18,24,36} [--font PATH] [--font-size PX]
                         [--align H V] [--high-resolution] [--margin MM] [--no-compression]
-                        [text]
+                        [--full-cut] [text ...]
 
 positional arguments:
-  text                  Text to print (required unless --image is used)
+  text                  Text to print. Multiple strings create multiple labels
+                        with half-cut between (required unless --image is used)
 
 options:
   --image, -i FILE      Image file to print instead of text
@@ -216,6 +250,7 @@ options:
   --high-resolution     Enable high resolution mode
   --margin, -m MM       Margin in mm (default: 2mm)
   --no-compression      Disable TIFF compression
+  --full-cut            Use full cuts between labels instead of half-cuts
 ```
 
 ## License
