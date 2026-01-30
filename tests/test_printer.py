@@ -311,3 +311,114 @@ class TestImagePreparation:
         # Each column should have BYTES_PER_LINE bytes
         expected_length = img_1bit.width * printer.BYTES_PER_LINE
         assert len(raster) == expected_length
+
+
+class TestLabelPrinterPrintMulti:
+    """Test the print_multi workflow for multiple labels."""
+
+    def test_print_multi_sends_data(
+        self, mock_connection: MockConnection, sample_image: Image.Image
+    ) -> None:
+        """Test that print_multi sends data to the connection."""
+        printer = PTE550W(mock_connection, use_compression=True)
+        labels = [
+            Label(sample_image, LaminatedTape12mm),
+            Label(sample_image, LaminatedTape12mm),
+        ]
+        printer.print_multi(labels)
+        # Should have sent data
+        assert len(mock_connection.data) > 0
+        # Should start with invalidate (null bytes)
+        assert mock_connection.data[:50] == b"\x00" * 50
+
+    def test_print_multi_single_label(
+        self, mock_connection: MockConnection, sample_image: Image.Image
+    ) -> None:
+        """Test that print_multi with a single label works correctly."""
+        printer = PTE550W(mock_connection, use_compression=True)
+        labels = [Label(sample_image, LaminatedTape12mm)]
+        printer.print_multi(labels)
+        # Should have sent data
+        assert len(mock_connection.data) > 0
+        # Single label should end with print command (0x1a)
+        assert b"\x1a" in mock_connection.data
+
+    def test_print_multi_empty_list_raises_error(self, mock_connection: MockConnection) -> None:
+        """Test that print_multi with empty list raises ValueError."""
+        printer = PTE550W(mock_connection)
+        with pytest.raises(ValueError, match="(?i)at least one label"):
+            printer.print_multi([])
+
+    def test_print_multi_mismatched_tapes_raises_error(
+        self, mock_connection: MockConnection, sample_image: Image.Image
+    ) -> None:
+        """Test that print_multi with different tape types raises ValueError."""
+        printer = PTE550W(mock_connection)
+        labels = [
+            Label(sample_image, LaminatedTape12mm),
+            Label(sample_image, LaminatedTape6mm),
+        ]
+        with pytest.raises(ValueError, match="same tape type"):
+            printer.print_multi(labels)
+
+    def test_print_multi_contains_form_feed_between_labels(
+        self, mock_connection: MockConnection, sample_image: Image.Image
+    ) -> None:
+        """Test that multi-label print has form feed (0x0C) between labels."""
+        printer = PTE550W(mock_connection, use_compression=True)
+        labels = [
+            Label(sample_image, LaminatedTape12mm),
+            Label(sample_image, LaminatedTape12mm),
+        ]
+        printer.print_multi(labels)
+        # Form feed (0x0C) should appear between labels (not at end)
+        assert b"\x0c" in mock_connection.data
+
+    def test_print_multi_ends_with_print_command(
+        self, mock_connection: MockConnection, sample_image: Image.Image
+    ) -> None:
+        """Test that multi-label print ends with print command (0x1a)."""
+        printer = PTE550W(mock_connection, use_compression=True)
+        labels = [
+            Label(sample_image, LaminatedTape12mm),
+            Label(sample_image, LaminatedTape12mm),
+        ]
+        printer.print_multi(labels)
+        # Should contain final print command
+        assert b"\x1a" in mock_connection.data
+
+    def test_print_multi_unsupported_tape(
+        self, mock_connection: MockConnection, sample_image: Image.Image
+    ) -> None:
+        """Test that printing with unsupported tape raises ValueError."""
+        printer = PTE550W(mock_connection)
+        labels = [
+            Label(sample_image, LaminatedTape36mm),  # E550W doesn't support 36mm
+            Label(sample_image, LaminatedTape36mm),
+        ]
+        with pytest.raises(ValueError, match="not supported"):
+            printer.print_multi(labels)
+
+    def test_print_multi_with_custom_margin(
+        self, mock_connection: MockConnection, sample_image: Image.Image
+    ) -> None:
+        """Test print_multi with custom margin."""
+        printer = PTE550W(mock_connection)
+        labels = [
+            Label(sample_image, LaminatedTape12mm),
+            Label(sample_image, LaminatedTape12mm),
+        ]
+        printer.print_multi(labels, margin_mm=5.0)
+        assert len(mock_connection.data) > 0
+
+    def test_print_multi_with_high_resolution(
+        self, mock_connection: MockConnection, sample_image: Image.Image
+    ) -> None:
+        """Test print_multi in high resolution mode."""
+        printer = PTE550W(mock_connection)
+        labels = [
+            Label(sample_image, LaminatedTape12mm),
+            Label(sample_image, LaminatedTape12mm),
+        ]
+        printer.print_multi(labels, high_resolution=True)
+        assert len(mock_connection.data) > 0
