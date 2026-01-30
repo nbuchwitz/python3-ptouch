@@ -29,6 +29,7 @@ requires-python = ">= 3.11"
 [project.optional-dependencies]
 usb = ["pyusb"]
 dev = ["ruff", "mypy"]
+test = ["pytest", "pytest-cov", "pyusb"]
 
 [project.scripts]
 ptouch = "ptouch.__main__:main"
@@ -57,3 +58,20 @@ max-complexity = 10
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["ptouch"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
