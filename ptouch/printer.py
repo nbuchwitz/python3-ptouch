@@ -382,7 +382,7 @@ class LabelPrinter(ABC):
         return bytes(raster)
 
     def _additional_control_commands(self) -> bytes:
-        """Optional hook for printer-specific control commands.
+        """Return printer-specific control commands.
 
         Default implementation adds page number cuts if USE_PAGE_NUMBER_CUTS is True.
         Override in subclasses to add device-specific commands.

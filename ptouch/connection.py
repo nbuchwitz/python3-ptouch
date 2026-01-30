@@ -52,6 +52,7 @@ class Connection(ABC):
         raise NotImplementedError("This connection does not support reading")
 
     def __del__(self) -> None:
+        """Clean up connection on garbage collection."""
         self.close()
 
 

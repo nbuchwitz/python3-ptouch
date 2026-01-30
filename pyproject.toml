@@ -51,6 +51,7 @@ lint.ignore = [
     "D203",   # incompatible with D211
     "D213",   # incompatible with D212
     "D107",   # undocumented-public-init
+    "ANN401", # allow Any type (needed for pyusb which lacks type stubs)
 ]
 
 [tool.lint.mccabe]
