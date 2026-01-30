@@ -68,13 +68,15 @@ def parse_args() -> argparse.Namespace:
         epilog="""\
 Examples:
   # Print text label via network
-  python -m ptouch "Hello World" --host 192.168.1.100 --printer P900 --tape-width 36 --font /path/to/font.ttf
+  python -m ptouch "Hello World" --host 192.168.1.100 --printer P900 \\
+      --tape-width 36 --font /path/to/font.ttf
 
   # Print image label via USB
   python -m ptouch --image logo.png --usb --printer E550W --tape-width 12
 
   # Print with options
-  python -m ptouch "Test" --host 192.168.1.100 --printer P900 --tape-width 24 --font /path/to/font.ttf --high-resolution --align left top
+  python -m ptouch "Test" --host 192.168.1.100 --printer P900 \\
+      --tape-width 24 --font /path/to/font.ttf --high-resolution
 """,
     )
 
@@ -143,7 +145,7 @@ Examples:
         nargs=2,
         metavar=("H", "V"),
         default=["center", "center"],
-        help="Horizontal and vertical alignment: left|center|right top|center|bottom (default: center center)",
+        help="Alignment: left|center|right top|center|bottom (default: center center)",
     )
 
     # Print options
@@ -169,7 +171,7 @@ Examples:
 
 
 def main() -> int:
-    """Main entry point for CLI."""
+    """Run the command-line interface."""
     args = parse_args()
 
     # Validate arguments
