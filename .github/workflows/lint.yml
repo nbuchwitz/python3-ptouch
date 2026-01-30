@@ -24,7 +24,7 @@ jobs:
           pip install ruff
 
       - name: Check code formatting
-        run: ruff format --check ptouch tests
+        run: ruff format --check src/ptouch tests
 
       - name: Lint with ruff
-        run: ruff check ptouch tests
+        run: ruff check src/ptouch tests
