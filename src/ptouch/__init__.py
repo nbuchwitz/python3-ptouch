@@ -11,12 +11,15 @@ compression, and printer-specific command sequences.
 Supported printers:
     - PT-E550W (128 pins, 180 DPI)
     - PT-P750W (128 pins, 180 DPI)
-    - PT-P900W / P900Wc (560 pins, 360 DPI)
+    - PT-P900 (560 pins, 360 DPI)
+    - PT-P900W (560 pins, 360 DPI)
+    - PT-P910BT (560 pins, 360 DPI)
+    - PT-P950NW (560 pins, 360 DPI)
 
 Example usage:
-    >>> from ptouch import PTP900, ConnectionNetwork, LaminatedTape36mm, TextLabel
+    >>> from ptouch import PTP900W, ConnectionNetwork, LaminatedTape36mm, TextLabel
     >>> conn = ConnectionNetwork("192.168.1.100")
-    >>> printer = PTP900(conn)
+    >>> printer = PTP900W(conn)
     >>> label = TextLabel("Hello, World!", LaminatedTape36mm)
     >>> printer.print(label)
 """
@@ -24,7 +27,7 @@ Example usage:
 from .connection import Connection, ConnectionNetwork, ConnectionUSB, PrinterConnectionError
 from .label import Align, Label, TextLabel
 from .printer import LabelPrinter, MediaType, TapeConfig
-from .printers import PTE550W, PTP750W, PTP900
+from .printers import PTE550W, PTP750W, PTP900, PTP900W, PTP910BT, PTP950NW
 from .tape import (
     HeatShrinkTape,
     LaminatedTape,
@@ -57,6 +60,9 @@ __all__ = [
     "PTE550W",
     "PTP750W",
     "PTP900",
+    "PTP900W",
+    "PTP910BT",
+    "PTP950NW",
     # Tapes
     "Tape",
     "LaminatedTape",
