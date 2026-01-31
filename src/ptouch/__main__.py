@@ -26,6 +26,7 @@ from . import (
     PTP900,
     TextLabel,
 )
+from .printer import LabelPrinter
 
 # Mapping of tape width (mm) to tape classes
 TAPE_WIDTHS = {
@@ -85,6 +86,10 @@ Examples:
 
   # Print 5 copies of a label
   python -m ptouch "Asset Tag" --copies 5 --host 192.168.1.100 \\
+      --printer P900 --tape-width 12 --font /path/to/font.ttf
+
+  # Print label with fixed width (50mm)
+  python -m ptouch "Short" --width 50 --host 192.168.1.100 \\
       --printer P900 --tape-width 12 --font /path/to/font.ttf
 """,
     )
@@ -188,6 +193,13 @@ Examples:
         metavar="N",
         help="Number of copies to print (default: 1)",
     )
+    parser.add_argument(
+        "--width",
+        "-w",
+        type=float,
+        metavar="MM",
+        help="Fixed label width in mm (default: auto-sized to content)",
+    )
 
     return parser.parse_args()
 
@@ -198,6 +210,7 @@ def create_text_labels(
     font_path: str,
     font_size: int | None,
     align: Align,
+    min_width_mm: float | None = None,
 ) -> list[TextLabel]:
     """Create TextLabel instances for multiple text strings.
 
@@ -213,6 +226,8 @@ def create_text_labels(
         Font size in pixels, or None for auto.
     align : Align
         Text alignment flags.
+    min_width_mm : float or None
+        Minimum label width in millimeters.
 
     Returns
     -------
@@ -226,6 +241,7 @@ def create_text_labels(
             font_path=font_path,
             font_size=font_size,
             align=align,
+            min_width_mm=min_width_mm,
         )
         for text in texts
     ]
@@ -294,12 +310,25 @@ def main() -> int:
 
         align = h_align | v_align
 
+        # Calculate image width: --width is total label length, subtract margins (both sides)
+        margin_mm = args.margin if args.margin is not None else LabelPrinter.DEFAULT_MARGIN_MM
+        min_width_mm = None
+        if args.width is not None:
+            min_width_mm = args.width - (2 * margin_mm)
+            if min_width_mm <= 0:
+                print(
+                    f"Error: --width must be greater than 2x margin ({2 * margin_mm}mm)",
+                    file=sys.stderr,
+                )
+                return 1
+
         labels = create_text_labels(
             args.text,
             tape_class,
             font_path=args.font,
             font_size=args.font_size,
             align=align,
+            min_width_mm=min_width_mm,
         )
 
     # Apply copies

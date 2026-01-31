@@ -48,7 +48,7 @@ class Label:
         self.image = image
         self.tape = tape() if isinstance(tape, type) else tape
 
-    def prepare(self, height: int) -> None:
+    def prepare(self, height: int, resolution_dpi: int = 180) -> None:
         """Prepare the label for printing.
 
         Called by the printer before printing. Override in subclasses
@@ -58,6 +58,8 @@ class Label:
         ----------
         height : int
             Print height in pixels (tape_config.print_pins).
+        resolution_dpi : int, default 180
+            Printer resolution in DPI for mm to pixel conversion.
         """
         pass
 
@@ -76,6 +78,7 @@ class TextLabel(Label):
         font_path: str,
         font_size: int | None = None,
         align: Align = Align.CENTER,
+        min_width_mm: float | None = None,
     ) -> None:
         """Initialize a text label.
 
@@ -93,12 +96,16 @@ class TextLabel(Label):
             Text alignment. Combine horizontal (LEFT, HCENTER, RIGHT) and
             vertical (TOP, VCENTER, BOTTOM) with |, e.g. Align.LEFT | Align.TOP.
             Use Align.CENTER for both horizontally and vertically centered.
+        min_width_mm : float or None, optional
+            Minimum label width in millimeters. If specified, the label will
+            be padded to at least this width.
         """
         self.text = text
         self.tape = tape() if isinstance(tape, type) else tape
         self.font_path = font_path
         self.font_size = font_size
         self.align = align
+        self.min_width_mm = min_width_mm
         self._image: Image.Image | None = None
 
     @property
@@ -111,13 +118,15 @@ class TextLabel(Label):
             )
         return self._image
 
-    def prepare(self, height: int) -> None:
+    def prepare(self, height: int, resolution_dpi: int = 180) -> None:
         """Render the text to an image.
 
         Parameters
         ----------
         height : int
             Image height in pixels (tape_config.print_pins).
+        resolution_dpi : int, default 180
+            Printer resolution in DPI for mm to pixel conversion.
         """
         if self._image is not None:
             return  # Already rendered
@@ -134,6 +143,12 @@ class TextLabel(Label):
         # Create image with padding
         padding = 10
         image_width = int(text_width + 2 * padding)
+
+        # Apply minimum width if specified
+        if self.min_width_mm is not None:
+            min_width_px = int(self.min_width_mm * resolution_dpi / 25.4)
+            image_width = max(image_width, min_width_px)
+
         image = Image.new("RGB", (image_width, height), (255, 255, 255))
 
         draw = ImageDraw.Draw(image)
