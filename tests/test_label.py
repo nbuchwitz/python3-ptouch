@@ -4,8 +4,10 @@
 
 """Tests for the ptouch.label module."""
 
+import warnings
+
 import pytest
-from PIL import Image
+from PIL import Image, ImageFont
 
 from ptouch.label import Align, Label, TextLabel
 from ptouch.tape import LaminatedTape12mm, LaminatedTape36mm
@@ -19,6 +21,12 @@ class TestAlign:
         flags = [Align.LEFT, Align.HCENTER, Align.RIGHT, Align.TOP, Align.VCENTER, Align.BOTTOM]
         values = [f.value for f in flags]
         assert len(values) == len(set(values)), "Alignment flags should have unique values"
+
+    def test_textlabel_align_access(self) -> None:
+        """Test that Align is accessible via TextLabel.Align."""
+        assert TextLabel.Align is Align
+        assert TextLabel.Align.CENTER == Align.CENTER
+        assert TextLabel.Align.LEFT == Align.LEFT
 
     def test_align_center_combines_horizontal_and_vertical(self) -> None:
         """Test that CENTER is HCENTER | VCENTER."""
@@ -106,9 +114,9 @@ class TestTextLabel:
         label = TextLabel("Hello", LaminatedTape36mm, font_path)
         assert label.text == "Hello"
         assert isinstance(label.tape, LaminatedTape36mm)
-        assert label.font_path == font_path
+        assert label.font == font_path
         assert label.font_size is None
-        assert label.align == Align.CENTER
+        assert label.align == TextLabel.Align.CENTER
 
     def test_text_label_initialization_with_tape_instance(self, font_path: str) -> None:
         """Test TextLabel initialization with tape instance."""
@@ -124,7 +132,7 @@ class TestTextLabel:
 
     def test_text_label_initialization_with_custom_align(self, font_path: str) -> None:
         """Test TextLabel initialization with custom alignment."""
-        align = Align.LEFT | Align.TOP
+        align = TextLabel.Align.LEFT | TextLabel.Align.TOP
         label = TextLabel("Test", LaminatedTape36mm, font_path, align=align)
         assert label.align == align
 
@@ -168,6 +176,7 @@ class TestTextLabel:
 
     def test_text_label_different_alignments(self, font_path: str) -> None:
         """Test that different alignments produce valid images."""
+        Align = TextLabel.Align
         alignments = [
             Align.LEFT | Align.TOP,
             Align.CENTER,
@@ -179,3 +188,34 @@ class TestTextLabel:
             label = TextLabel("Test", LaminatedTape36mm, font_path, align=align)
             label.prepare(height=100)
             assert isinstance(label.image, Image.Image)
+
+    def test_text_label_with_imagefont(self, font_path: str) -> None:
+        """Test TextLabel initialization with ImageFont object."""
+        font = ImageFont.truetype(font_path, size=24)
+        label = TextLabel("Hello", LaminatedTape36mm, font)
+        assert label.font is font
+        label.prepare(height=100)
+        assert isinstance(label.image, Image.Image)
+
+    def test_text_label_with_min_width_mm(self, font_path: str) -> None:
+        """Test TextLabel with min_width_mm parameter."""
+        label = TextLabel("X", LaminatedTape36mm, font_path, min_width_mm=50.0)
+        assert label.min_width_mm == 50.0
+        label.prepare(height=100, resolution_dpi=180)
+        # 50mm at 180 DPI = 50 * 180 / 25.4 ≈ 354 pixels minimum
+        assert label.image.width >= 354
+
+    def test_text_label_invalid_font_type_raises_valueerror(self) -> None:
+        """Test that invalid font type raises ValueError."""
+        with pytest.raises(ValueError, match="font must be a path string or ImageFont"):
+            TextLabel("Hello", LaminatedTape36mm, 123)  # type: ignore[arg-type]
+
+    def test_text_label_font_size_with_imagefont_warns(self, font_path: str) -> None:
+        """Test that font_size with ImageFont object raises RuntimeWarning."""
+        font = ImageFont.truetype(font_path, size=24)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            TextLabel("Hello", LaminatedTape36mm, font, font_size=48)
+            assert len(w) == 1
+            assert issubclass(w[0].category, RuntimeWarning)
+            assert "font_size is ignored" in str(w[0].message)
