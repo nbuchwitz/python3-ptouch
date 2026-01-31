@@ -3,8 +3,18 @@ name: Tests
 on:
   push:
     branches: [main]
+    paths:
+      - "src/ptouch/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/pytest.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "src/ptouch/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/pytest.yml"
 
 jobs:
   pytest:
