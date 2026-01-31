@@ -3,8 +3,18 @@ name: Linting
 on:
   push:
     branches: [main]
+    paths:
+      - "src/ptouch/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/lint.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "src/ptouch/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/lint.yml"
 
 jobs:
   lint:
