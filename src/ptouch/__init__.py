@@ -27,7 +27,7 @@ from .config import (
     USB_PRODUCT_ID_PT_P900W,
     USB_VENDOR_ID,
 )
-from .connection import Connection, ConnectionNetwork, ConnectionUSB
+from .connection import Connection, ConnectionNetwork, ConnectionUSB, PrinterConnectionError
 from .label import Align, Label, TextLabel
 from .printer import LabelPrinter, MediaType
 from .printers import PTE550W, PTP750W, PTP900
@@ -60,6 +60,7 @@ __all__ = [
     "Connection",
     "ConnectionUSB",
     "ConnectionNetwork",
+    "PrinterConnectionError",
     # Printers
     "LabelPrinter",
     "PTE550W",
