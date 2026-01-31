@@ -24,6 +24,9 @@ from . import (
     PTE550W,
     PTP750W,
     PTP900,
+    PTP900W,
+    PTP910BT,
+    PTP950NW,
     TextLabel,
 )
 from .printer import LabelPrinter
@@ -43,8 +46,9 @@ PRINTER_TYPES = {
     "E550W": PTE550W,
     "P750W": PTP750W,
     "P900": PTP900,
-    "P900W": PTP900,
-    "P950NW": PTP900,
+    "P900W": PTP900W,
+    "P910BT": PTP910BT,
+    "P950NW": PTP950NW,
 }
 
 # Mapping of alignment strings to Align flags

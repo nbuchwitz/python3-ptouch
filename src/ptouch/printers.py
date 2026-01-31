@@ -50,15 +50,13 @@ class PTP750W(PTE550W):
     USB_PRODUCT_ID = 0x2065
 
 
-class PTP900(LabelPrinter):
-    """Brother PT-P900W/P900Wc label printer (560 pins, 360 DPI).
+class PTP900Series(LabelPrinter):
+    """Base class for Brother PT-P900 series printers (560 pins, 360 DPI).
 
-    This class supports the following printers:
-        - PT-P900W
-        - PT-P900Wc
+    This is the base class for all P900 series printers. Use one of the
+    specific subclasses (PTP900, PTP900W, PTP950NW, PTP910BT) instead.
     """
 
-    USB_PRODUCT_ID = 0x2085
     TOTAL_PINS = 560
     BYTES_PER_LINE = 70
     RESOLUTION_DPI = 360
@@ -75,3 +73,27 @@ class PTP900(LabelPrinter):
         LaminatedTape24mm: TapeConfig(left_pins=112, print_pins=320, right_pins=128),
         LaminatedTape36mm: TapeConfig(left_pins=45, print_pins=454, right_pins=61),
     }
+
+
+class PTP900(PTP900Series):
+    """Brother PT-P900 label printer (USB only, no wireless)."""
+
+    USB_PRODUCT_ID = 0x2083
+
+
+class PTP900W(PTP900Series):
+    """Brother PT-P900W label printer (with Wi-Fi)."""
+
+    USB_PRODUCT_ID = 0x2085
+
+
+class PTP950NW(PTP900Series):
+    """Brother PT-P950NW label printer (with network connectivity)."""
+
+    USB_PRODUCT_ID = 0x2086
+
+
+class PTP910BT(PTP900Series):
+    """Brother PT-P910BT label printer (with Bluetooth)."""
+
+    USB_PRODUCT_ID = 0x20C7
