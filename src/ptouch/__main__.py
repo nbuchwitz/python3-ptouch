@@ -82,6 +82,10 @@ Examples:
   # Print with options
   python -m ptouch "Test" --host 192.168.1.100 --printer P900 \\
       --tape-width 24 --font /path/to/font.ttf --high-resolution
+
+  # Print 5 copies of a label
+  python -m ptouch "Asset Tag" --copies 5 --host 192.168.1.100 \\
+      --printer P900 --tape-width 12 --font /path/to/font.ttf
 """,
     )
 
@@ -176,6 +180,14 @@ Examples:
         action="store_true",
         help="Use full cuts between labels instead of half-cuts (default: half-cut)",
     )
+    parser.add_argument(
+        "--copies",
+        "-c",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Number of copies to print (default: 1)",
+    )
 
     return parser.parse_args()
 
@@ -236,6 +248,10 @@ def main() -> int:
         print("Error: --font is required for text labels", file=sys.stderr)
         return 1
 
+    if args.copies < 1:
+        print("Error: --copies must be at least 1", file=sys.stderr)
+        return 1
+
     # Get printer and tape classes
     printer_class = PRINTER_TYPES[args.printer]
     tape_class = TAPE_WIDTHS[args.tape_width]
@@ -285,6 +301,10 @@ def main() -> int:
             font_size=args.font_size,
             align=align,
         )
+
+    # Apply copies
+    if args.copies > 1:
+        labels = labels * args.copies
 
     # Print
     num_labels = len(labels)

@@ -128,6 +128,10 @@ python -m ptouch --image logo.png --usb --printer E550W --tape-width 12
 # Print with options
 python -m ptouch "Test" --host 192.168.1.100 --printer P900 --tape-width 24 \
     --font /path/to/font.ttf --high-resolution --align left top --margin 5
+
+# Print 5 copies of a label
+python -m ptouch "Asset Tag" --copies 5 --host 192.168.1.100 \
+    --printer P900 --tape-width 12 --font /path/to/font.ttf
 ```
 
 ### Python API
@@ -251,6 +255,7 @@ options:
   --margin, -m MM       Margin in mm (default: 2mm)
   --no-compression      Disable TIFF compression
   --full-cut            Use full cuts between labels instead of half-cuts
+  --copies, -c N        Number of copies to print (default: 1)
 ```
 
 ## License
