@@ -132,6 +132,10 @@ python -m ptouch "Test" --host 192.168.1.100 --printer P900 --tape-width 24 \
 # Print 5 copies of a label
 python -m ptouch "Asset Tag" --copies 5 --host 192.168.1.100 \
     --printer P900 --tape-width 12 --font /path/to/font.ttf
+
+# Print label with fixed width (50mm)
+python -m ptouch "Short" --width 50 --host 192.168.1.100 \
+    --printer P900 --tape-width 12 --font /path/to/font.ttf
 ```
 
 ### Python API
@@ -256,6 +260,7 @@ options:
   --no-compression      Disable TIFF compression
   --full-cut            Use full cuts between labels instead of half-cuts
   --copies, -c N        Number of copies to print (default: 1)
+  --width, -w MM        Fixed label width in mm (default: auto-sized to content)
 ```
 
 ## License

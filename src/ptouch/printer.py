@@ -568,7 +568,7 @@ class LabelPrinter(ABC):
         high_res = self.high_resolution if high_resolution is None else high_resolution
 
         tape_config = self.get_tape_config(label.tape)
-        label.prepare(tape_config.print_pins)
+        label.prepare(tape_config.print_pins, self.RESOLUTION_DPI)
         image = label.image
 
         img_1bit = self._prepare_image(image, tape_config)
@@ -681,7 +681,7 @@ class LabelPrinter(ABC):
             is_last = idx == len(labels) - 1
 
             # Prepare label
-            label.prepare(tape_config.print_pins)
+            label.prepare(tape_config.print_pins, self.RESOLUTION_DPI)
             image = label.image
             img_1bit = self._prepare_image(image, tape_config)
             raster = self._generate_raster(img_1bit, tape_config)
