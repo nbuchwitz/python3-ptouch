@@ -207,7 +207,7 @@ Examples:
 def create_text_labels(
     texts: Sequence[str],
     tape_class: type,
-    font_path: str,
+    font: str,
     font_size: int | None,
     align: Align,
     min_width_mm: float | None = None,
@@ -220,7 +220,7 @@ def create_text_labels(
         List of text strings to create labels for.
     tape_class : type
         Tape class to use for all labels.
-    font_path : str
+    font : str
         Path to TrueType font file.
     font_size : int or None
         Font size in pixels, or None for auto.
@@ -238,7 +238,7 @@ def create_text_labels(
         TextLabel(
             text,
             tape_class,
-            font_path=font_path,
+            font=font,
             font_size=font_size,
             align=align,
             min_width_mm=min_width_mm,
@@ -325,7 +325,7 @@ def main() -> int:
         labels = create_text_labels(
             args.text,
             tape_class,
-            font_path=args.font,
+            font=args.font,
             font_size=args.font_size,
             align=align,
             min_width_mm=min_width_mm,

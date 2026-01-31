@@ -158,10 +158,18 @@ printer = PTP900(connection, high_resolution=True)
 label = TextLabel(
     "Hello World",
     LaminatedTape36mm,
-    font_path="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    font="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     align=TextLabel.Align.CENTER,
 )
 printer.print(label)
+
+# Or use a pre-loaded ImageFont (font_size is ignored, size comes from the font)
+from PIL import ImageFont
+font = ImageFont.truetype("/path/to/font.ttf", size=48)
+label = TextLabel("Custom Font", LaminatedTape36mm, font=font)
+
+# For quick testing, use the default font (requires Pillow 10.1+)
+label = TextLabel("Quick Test", LaminatedTape36mm, font=ImageFont.load_default())
 ```
 
 #### Image Labels
@@ -189,7 +197,7 @@ printer = PTE550W(connection)
 label = TextLabel(
     "USB Label",
     LaminatedTape12mm,
-    font_path="/path/to/font.ttf",
+    font="/path/to/font.ttf",
 )
 printer.print(label)
 ```
@@ -205,9 +213,9 @@ connection = ConnectionNetwork("192.168.1.100")
 printer = PTP900(connection)
 
 labels = [
-    TextLabel("Label 1", LaminatedTape12mm, font_path="/path/to/font.ttf"),
-    TextLabel("Label 2", LaminatedTape12mm, font_path="/path/to/font.ttf"),
-    TextLabel("Label 3", LaminatedTape12mm, font_path="/path/to/font.ttf"),
+    TextLabel("Label 1", LaminatedTape12mm, font="/path/to/font.ttf"),
+    TextLabel("Label 2", LaminatedTape12mm, font="/path/to/font.ttf"),
+    TextLabel("Label 3", LaminatedTape12mm, font="/path/to/font.ttf"),
 ]
 
 # Half-cuts between labels (default), full cut after last
