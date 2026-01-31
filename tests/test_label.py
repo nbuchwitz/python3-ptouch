@@ -4,8 +4,6 @@
 
 """Tests for the ptouch.label module."""
 
-import warnings
-
 import pytest
 from PIL import Image, ImageFont
 
@@ -210,12 +208,25 @@ class TestTextLabel:
         with pytest.raises(ValueError, match="font must be a path string or ImageFont"):
             TextLabel("Hello", LaminatedTape36mm, 123)  # type: ignore[arg-type]
 
-    def test_text_label_font_size_with_imagefont_warns(self, font_path: str) -> None:
-        """Test that font_size with ImageFont object raises RuntimeWarning."""
+    def test_text_label_auto_size_true_scales_font(self, font_path: str) -> None:
+        """Test that auto_size=True scales font to 80% of height."""
+        label = TextLabel("Hello", LaminatedTape36mm, font_path, auto_size=True)
+        label.prepare(height=100)
+        # Font should be auto-sized, image should be rendered
+        assert isinstance(label.image, Image.Image)
+
+    def test_text_label_auto_size_false_uses_font_size(self, font_path: str) -> None:
+        """Test that auto_size=False uses explicit font_size."""
+        label = TextLabel("Hello", LaminatedTape36mm, font_path, font_size=24, auto_size=False)
+        assert label.auto_size is False
+        assert label.font_size == 24
+        label.prepare(height=100)
+        assert isinstance(label.image, Image.Image)
+
+    def test_text_label_auto_size_false_with_imagefont(self, font_path: str) -> None:
+        """Test that auto_size=False uses ImageFont's built-in size."""
         font = ImageFont.truetype(font_path, size=24)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            TextLabel("Hello", LaminatedTape36mm, font, font_size=48)
-            assert len(w) == 1
-            assert issubclass(w[0].category, RuntimeWarning)
-            assert "font_size is ignored" in str(w[0].message)
+        label = TextLabel("Hello", LaminatedTape36mm, font, auto_size=False)
+        assert label.auto_size is False
+        label.prepare(height=100)
+        assert isinstance(label.image, Image.Image)

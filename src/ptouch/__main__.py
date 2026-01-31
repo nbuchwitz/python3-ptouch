@@ -8,7 +8,7 @@ import argparse
 import sys
 from typing import Sequence
 
-from PIL import Image
+from PIL import Image, ImageFont
 
 from . import (
     Align,
@@ -69,28 +69,31 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
-  # Print text label via network
+  # Print text label via network (uses PIL default font)
+  python -m ptouch "Hello World" --host 192.168.1.100 --printer P900 --tape-width 36
+
+  # Print with custom font
   python -m ptouch "Hello World" --host 192.168.1.100 --printer P900 \\
       --tape-width 36 --font /path/to/font.ttf
 
   # Print multiple labels (half-cut between, full cut after last)
   python -m ptouch "Label 1" "Label 2" "Label 3" --host 192.168.1.100 \\
-      --printer E550W --tape-width 12 --font /path/to/font.ttf
+      --printer E550W --tape-width 12
 
   # Print image label via USB
   python -m ptouch --image logo.png --usb --printer E550W --tape-width 12
 
-  # Print with options
+  # Print with fixed font size (disables auto-sizing)
   python -m ptouch "Test" --host 192.168.1.100 --printer P900 \\
-      --tape-width 24 --font /path/to/font.ttf --high-resolution
+      --tape-width 24 --font-size 48 --high-resolution
 
   # Print 5 copies of a label
   python -m ptouch "Asset Tag" --copies 5 --host 192.168.1.100 \\
-      --printer P900 --tape-width 12 --font /path/to/font.ttf
+      --printer P900 --tape-width 12
 
   # Print label with fixed width (50mm)
   python -m ptouch "Short" --width 50 --host 192.168.1.100 \\
-      --printer P900 --tape-width 12 --font /path/to/font.ttf
+      --printer P900 --tape-width 12
 """,
     )
 
@@ -138,18 +141,18 @@ Examples:
         help="Tape width in mm",
     )
 
-    # Font (required for text)
+    # Font options
     parser.add_argument(
         "--font",
         "-f",
         metavar="PATH",
-        help="Path to TrueType font file (required for text labels)",
+        help="Path to TrueType font file (uses PIL default font if not specified)",
     )
     parser.add_argument(
         "--font-size",
         type=int,
         metavar="PX",
-        help="Font size in pixels (default: 80%% of print height)",
+        help="Font size in pixels (disables auto-sizing to 80%% of print height)",
     )
 
     # Alignment
@@ -207,10 +210,11 @@ Examples:
 def create_text_labels(
     texts: Sequence[str],
     tape_class: type,
-    font: str,
-    font_size: int | None,
+    font: str | ImageFont.FreeTypeFont,
     align: Align,
+    font_size: int | None = None,
     min_width_mm: float | None = None,
+    auto_size: bool = True,
 ) -> list[TextLabel]:
     """Create TextLabel instances for multiple text strings.
 
@@ -220,14 +224,16 @@ def create_text_labels(
         List of text strings to create labels for.
     tape_class : type
         Tape class to use for all labels.
-    font : str
-        Path to TrueType font file.
-    font_size : int or None
-        Font size in pixels, or None for auto.
+    font : str or ImageFont.FreeTypeFont
+        Path to TrueType font file or ImageFont object.
     align : Align
         Text alignment flags.
+    font_size : int or None
+        Font size in pixels (only used when auto_size=False).
     min_width_mm : float or None
         Minimum label width in millimeters.
+    auto_size : bool
+        If True, auto-size font to 80% of print height.
 
     Returns
     -------
@@ -242,6 +248,7 @@ def create_text_labels(
             font_size=font_size,
             align=align,
             min_width_mm=min_width_mm,
+            auto_size=auto_size,
         )
         for text in texts
     ]
@@ -258,10 +265,6 @@ def main() -> int:
 
     if not args.image and not args.text:
         print("Error: Must specify either text or --image", file=sys.stderr)
-        return 1
-
-    if args.text and not args.font:
-        print("Error: --font is required for text labels", file=sys.stderr)
         return 1
 
     if args.copies < 1:
@@ -310,6 +313,29 @@ def main() -> int:
 
         align = h_align | v_align
 
+        # Determine font: use provided path or try default font
+        font: str | ImageFont.FreeTypeFont
+        if args.font:
+            font = args.font
+        else:
+            try:
+                default_font = ImageFont.load_default()
+                # Check if it's a scalable font (has font_variant method)
+                if not hasattr(default_font, "font_variant") or not isinstance(
+                    default_font, ImageFont.FreeTypeFont
+                ):
+                    print(
+                        "Error: PIL default font is not scalable. "
+                        "Please upgrade Pillow to 10.1+ or provide --font",
+                        file=sys.stderr,
+                    )
+                    return 1
+                font = default_font
+            except Exception as e:
+                print(f"Error: Could not load default font: {e}", file=sys.stderr)
+                print("Please provide --font with a path to a TrueType font", file=sys.stderr)
+                return 1
+
         # Calculate image width: --width is total label length, subtract margins (both sides)
         margin_mm = args.margin if args.margin is not None else LabelPrinter.DEFAULT_MARGIN_MM
         min_width_mm = None
@@ -322,13 +348,17 @@ def main() -> int:
                 )
                 return 1
 
+        # auto_size=True (default) unless font_size is explicitly set
+        auto_size = args.font_size is None
+
         labels = create_text_labels(
             args.text,
             tape_class,
-            font=args.font,
-            font_size=args.font_size,
+            font=font,
             align=align,
+            font_size=args.font_size,
             min_width_mm=min_width_mm,
+            auto_size=auto_size,
         )
 
     # Apply copies

@@ -4,7 +4,6 @@
 
 """Label classes for Brother P-touch label printers."""
 
-import warnings
 from enum import Flag, auto
 
 from PIL import Image, ImageDraw, ImageFont
@@ -79,6 +78,7 @@ class TextLabel(Label):
         font_size: int | None = None,
         align: "TextLabel.Align | None" = None,
         min_width_mm: float | None = None,
+        auto_size: bool = True,
     ) -> None:
         """Initialize a text label.
 
@@ -91,8 +91,7 @@ class TextLabel(Label):
         font : str or ImageFont.FreeTypeFont
             Path to TrueType font file, or a pre-loaded ImageFont object.
         font_size : int or None, optional
-            Font size in pixels. Defaults to 80% of print height.
-            Ignored when passing a pre-loaded font object.
+            Font size in pixels. Only used when auto_size=False.
         align : TextLabel.Align, default TextLabel.Align.CENTER
             Text alignment. Combine horizontal (LEFT, HCENTER, RIGHT) and
             vertical (TOP, VCENTER, BOTTOM) with |, e.g. Align.LEFT | Align.TOP.
@@ -100,6 +99,10 @@ class TextLabel(Label):
         min_width_mm : float or None, optional
             Minimum label width in millimeters. If specified, the label will
             be padded to at least this width.
+        auto_size : bool, default True
+            If True, automatically size the font to 80% of the print height.
+            If False, use font_size (for path strings) or the ImageFont's
+            built-in size.
         """
         self.text = text
         self.tape = tape() if isinstance(tape, type) else tape
@@ -107,17 +110,11 @@ class TextLabel(Label):
             raise ValueError(
                 f"font must be a path string or ImageFont.FreeTypeFont, got {type(font).__name__}"
             )
-        if font_size is not None and isinstance(font, ImageFont.FreeTypeFont):
-            warnings.warn(
-                "font_size is ignored when passing an ImageFont object; "
-                "set size via ImageFont.truetype(path, size=...)",
-                RuntimeWarning,
-                stacklevel=2,
-            )
         self.font = font
         self.font_size = font_size
         self.align = align if align is not None else TextLabel.Align.CENTER
         self.min_width_mm = min_width_mm
+        self.auto_size = auto_size
         self._image: Image.Image | None = None
 
     @property
@@ -143,11 +140,25 @@ class TextLabel(Label):
         if self._image is not None:
             return  # Already rendered
 
-        if isinstance(self.font, str):
-            font_size = self.font_size if self.font_size is not None else int(height * 0.8)
-            font = ImageFont.truetype(self.font, font_size)
+        if self.auto_size:
+            # Auto-size font to 80% of print height
+            font_size = int(height * 0.8)
+            if isinstance(self.font, str):
+                font = ImageFont.truetype(self.font, font_size)
+            else:
+                # ImageFont object - use font_variant() to create scaled version
+                if hasattr(self.font, "font_variant"):
+                    font = self.font.font_variant(size=font_size)
+                else:
+                    # Can't auto-size (e.g., bitmap font), use as-is
+                    font = self.font
         else:
-            font = self.font
+            # Use explicit font_size or ImageFont's built-in size
+            if isinstance(self.font, str):
+                font_size = self.font_size if self.font_size is not None else int(height * 0.8)
+                font = ImageFont.truetype(self.font, font_size)
+            else:
+                font = self.font
 
         # Measure text size
         temp_img = Image.new("RGB", (1, 1))

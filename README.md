@@ -110,32 +110,35 @@ Then add the corresponding `TapeConfig` entries to each printer class that suppo
 ### Command Line
 
 ```bash
-# Print text label via network
+# Print text label via network (uses PIL default font)
+python -m ptouch "Hello World" --host 192.168.1.100 --printer P900 --tape-width 36
+
+# Print with custom font
 python -m ptouch "Hello World" --host 192.168.1.100 --printer P900 \
     --tape-width 36 --font /path/to/font.ttf
 
 # Print multiple labels (half-cut between, full cut after last)
 python -m ptouch "Label 1" "Label 2" "Label 3" --host 192.168.1.100 \
-    --printer P900 --tape-width 12 --font /path/to/font.ttf
+    --printer P900 --tape-width 12
 
 # Print multiple labels with full cuts between each
 python -m ptouch "Label 1" "Label 2" --full-cut --host 192.168.1.100 \
-    --printer P900 --tape-width 12 --font /path/to/font.ttf
+    --printer P900 --tape-width 12
 
 # Print image label via USB
 python -m ptouch --image logo.png --usb --printer E550W --tape-width 12
 
-# Print with options
+# Print with fixed font size (disables auto-sizing)
 python -m ptouch "Test" --host 192.168.1.100 --printer P900 --tape-width 24 \
-    --font /path/to/font.ttf --high-resolution --align left top --margin 5
+    --font-size 48 --high-resolution --align left top --margin 5
 
 # Print 5 copies of a label
 python -m ptouch "Asset Tag" --copies 5 --host 192.168.1.100 \
-    --printer P900 --tape-width 12 --font /path/to/font.ttf
+    --printer P900 --tape-width 12
 
 # Print label with fixed width (50mm)
 python -m ptouch "Short" --width 50 --host 192.168.1.100 \
-    --printer P900 --tape-width 12 --font /path/to/font.ttf
+    --printer P900 --tape-width 12
 ```
 
 ### Python API
@@ -163,10 +166,13 @@ label = TextLabel(
 )
 printer.print(label)
 
-# Or use a pre-loaded ImageFont (font_size is ignored, size comes from the font)
+# Or use a pre-loaded ImageFont (auto-sized by default)
 from PIL import ImageFont
 font = ImageFont.truetype("/path/to/font.ttf", size=48)
 label = TextLabel("Custom Font", LaminatedTape36mm, font=font)
+
+# Use ImageFont with its built-in size (disable auto-sizing)
+label = TextLabel("Fixed Size", LaminatedTape36mm, font=font, auto_size=False)
 
 # For quick testing, use the default font (requires Pillow 10.1+)
 label = TextLabel("Quick Test", LaminatedTape36mm, font=ImageFont.load_default())
@@ -261,8 +267,8 @@ options:
   --usb                 Use USB connection
   --printer, -p         Printer model
   --tape-width, -t      Tape width in mm
-  --font, -f PATH       Path to TrueType font file (required for text labels)
-  --font-size PX        Font size in pixels (default: 80% of print height)
+  --font, -f PATH       Path to TrueType font file (uses PIL default if not specified)
+  --font-size PX        Font size in pixels (disables auto-sizing to 80% of print height)
   --align, -a H V       Horizontal and vertical alignment (default: center center)
   --high-resolution     Enable high resolution mode
   --margin, -m MM       Margin in mm (default: 2mm)
