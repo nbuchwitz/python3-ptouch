@@ -279,7 +279,7 @@ def main() -> int:
     if args.host:
         connection = ConnectionNetwork(args.host)
     else:
-        connection = ConnectionUSB(printer_class)
+        connection = ConnectionUSB()
 
     # Create printer
     use_compression = not args.no_compression

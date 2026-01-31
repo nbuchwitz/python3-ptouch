@@ -2,14 +2,11 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-"""Tests for the ptouch.config module."""
+"""Tests for the TapeConfig class and USB constants."""
 
-from ptouch.config import (
-    TapeConfig,
-    USB_PRODUCT_ID_PT_E550W,
-    USB_PRODUCT_ID_PT_P900W,
-    USB_VENDOR_ID,
-)
+from ptouch.connection import USB_VENDOR_ID
+from ptouch.printer import TapeConfig
+from ptouch.printers import PTE550W, PTP750W, PTP900
 
 
 class TestTapeConfig:
@@ -45,6 +42,12 @@ class TestTapeConfig:
         assert "100" in repr_str
         assert "18" in repr_str
 
+    def test_tape_config_importable_from_package(self) -> None:
+        """Test that TapeConfig can be imported from ptouch."""
+        from ptouch import TapeConfig as ImportedTapeConfig
+
+        assert ImportedTapeConfig is TapeConfig
+
 
 class TestUSBConstants:
     """Test USB constant values."""
@@ -56,13 +59,22 @@ class TestUSBConstants:
 
     def test_usb_product_id_e550w(self) -> None:
         """Test PT-E550W product ID."""
-        assert USB_PRODUCT_ID_PT_E550W == 0x2060
+        assert PTE550W.USB_PRODUCT_ID == 0x2060
+
+    def test_usb_product_id_p750w(self) -> None:
+        """Test PT-P750W product ID."""
+        assert PTP750W.USB_PRODUCT_ID == 0x2065
 
     def test_usb_product_id_p900w(self) -> None:
         """Test PT-P900W product ID."""
-        assert USB_PRODUCT_ID_PT_P900W == 0x2085
+        assert PTP900.USB_PRODUCT_ID == 0x2085
 
     def test_vendor_and_product_ids_are_different(self) -> None:
         """Test that vendor and product IDs are all different."""
-        ids = [USB_VENDOR_ID, USB_PRODUCT_ID_PT_E550W, USB_PRODUCT_ID_PT_P900W]
+        ids = [
+            USB_VENDOR_ID,
+            PTE550W.USB_PRODUCT_ID,
+            PTP750W.USB_PRODUCT_ID,
+            PTP900.USB_PRODUCT_ID,
+        ]
         assert len(ids) == len(set(ids))

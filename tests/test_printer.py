@@ -7,8 +7,8 @@
 import pytest
 from PIL import Image
 
-from ptouch.config import TapeConfig
 from ptouch.label import Label
+from ptouch.printer import TapeConfig
 from ptouch.printer import MediaType
 from ptouch.printers import PTE550W, PTP750W, PTP900
 from ptouch.tape import (

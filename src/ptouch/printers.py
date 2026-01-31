@@ -4,8 +4,7 @@
 
 """Concrete printer implementations for Brother P-touch label printers."""
 
-from .config import TapeConfig
-from .printer import LabelPrinter
+from .printer import LabelPrinter, TapeConfig
 from .tape import (
     LaminatedTape6mm,
     LaminatedTape9mm,
@@ -24,6 +23,7 @@ class PTE550W(LabelPrinter):
     In high-res mode, each raster line must be sent twice and margin doubled.
     """
 
+    USB_PRODUCT_ID = 0x2060
     TOTAL_PINS = 128
     BYTES_PER_LINE = 16
     RESOLUTION_DPI = 180
@@ -47,7 +47,7 @@ class PTP750W(PTE550W):
     Inherits all settings from PTE550W.
     """
 
-    pass
+    USB_PRODUCT_ID = 0x2065
 
 
 class PTP900(LabelPrinter):
@@ -58,6 +58,7 @@ class PTP900(LabelPrinter):
         - PT-P900Wc
     """
 
+    USB_PRODUCT_ID = 0x2085
     TOTAL_PINS = 560
     BYTES_PER_LINE = 70
     RESOLUTION_DPI = 360

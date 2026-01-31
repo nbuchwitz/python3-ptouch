@@ -7,16 +7,35 @@
 import logging
 import struct
 from abc import ABC
+from dataclasses import dataclass
 from enum import Enum
 from math import ceil
 
 import packbits
 from PIL import Image
 
-from .config import TapeConfig
 from .connection import Connection
 from .label import Label
 from .tape import Tape
+
+
+@dataclass
+class TapeConfig:
+    """Pin configuration for a specific printer/tape combination.
+
+    Attributes
+    ----------
+    left_pins : int
+        Number of unused pins on the left margin.
+    print_pins : int
+        Number of pins in the printable area.
+    right_pins : int
+        Number of unused pins on the right margin.
+    """
+
+    left_pins: int
+    print_pins: int
+    right_pins: int
 
 
 class MediaType(Enum):
@@ -104,6 +123,7 @@ class LabelPrinter(ABC):
             Whether to use high resolution mode. Defaults to class setting.
         """
         self.connection = connection
+        connection.connect(self)
         self.use_compression = (
             self.DEFAULT_USE_COMPRESSION if use_compression is None else use_compression
         )

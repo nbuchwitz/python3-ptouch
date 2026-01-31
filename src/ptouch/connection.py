@@ -4,15 +4,21 @@
 
 """Connection classes for Brother P-touch printers."""
 
+from __future__ import annotations
+
 import errno
 import socket
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import usb.core
 import usb.util
 
-from .config import USB_VENDOR_ID
+if TYPE_CHECKING:
+    from .printer import LabelPrinter
+
+# USB vendor ID for Brother Industries
+USB_VENDOR_ID = 0x04F9
 
 
 class PrinterConnectionError(Exception):
@@ -33,6 +39,16 @@ class PrinterConnectionError(Exception):
 
 class Connection(ABC):
     """Abstract base class for printer connections."""
+
+    @abstractmethod
+    def connect(self, printer: LabelPrinter) -> None:
+        """Establish the connection to the printer.
+
+        Parameters
+        ----------
+        printer : LabelPrinter
+            The printer instance that will use this connection.
+        """
 
     @abstractmethod
     def write(self, payload: bytes) -> None:
@@ -76,10 +92,8 @@ class Connection(ABC):
 class ConnectionUSB(Connection):
     """USB connection for Brother label printers.
 
-    Parameters
-    ----------
-    product_id : int
-        USB product ID of the printer.
+    The actual USB connection is established when connect() is called by the printer.
+    The printer class must define a USB_PRODUCT_ID class attribute.
 
     Raises
     ------
@@ -87,15 +101,40 @@ class ConnectionUSB(Connection):
         If the printer device is not found, endpoints are missing, or USB access fails.
     """
 
-    def __init__(self, product_id: int) -> None:
-        self._device: Any = usb.core.find(idVendor=USB_VENDOR_ID, idProduct=product_id)
+    def __init__(self) -> None:
+        self._device: Any = None
+        self._ep_in: Any = None
+        self._ep_out: Any = None
+        self._kernel_driver_detached = False
+
+    def connect(self, printer: LabelPrinter) -> None:
+        """Establish USB connection to the printer.
+
+        Parameters
+        ----------
+        printer : LabelPrinter
+            The printer instance. Must have USB_PRODUCT_ID class attribute.
+
+        Raises
+        ------
+        PrinterConnectionError
+            If USB_PRODUCT_ID is not defined on the printer class,
+            the device is not found, or USB access fails.
+        """
+        product_id = getattr(printer, "USB_PRODUCT_ID", None)
+        if product_id is None:
+            raise PrinterConnectionError(
+                f"{printer.__class__.__name__} does not define USB_PRODUCT_ID. "
+                "USB connection requires a printer class with USB_PRODUCT_ID attribute."
+            )
+
+        self._device = usb.core.find(idVendor=USB_VENDOR_ID, idProduct=product_id)
         if self._device is None:
             raise PrinterConnectionError(
                 f"USB printer with product ID 0x{product_id:04X} not found. "
                 "Check if the printer is connected and powered on."
             )
 
-        self._kernel_driver_detached = False
         try:
             interface = self._device[0].interfaces()[0]
             if self._device.is_kernel_driver_active(interface.bInterfaceNumber):
@@ -125,8 +164,8 @@ class ConnectionUSB(Connection):
         def match_endpoint_out(endpoint: Any) -> bool:
             return usb.util.endpoint_direction(endpoint.bEndpointAddress) == usb.util.ENDPOINT_OUT
 
-        self._ep_in: Any = usb.util.find_descriptor(intf, custom_match=match_endpoint_in)
-        self._ep_out: Any = usb.util.find_descriptor(intf, custom_match=match_endpoint_out)
+        self._ep_in = usb.util.find_descriptor(intf, custom_match=match_endpoint_in)
+        self._ep_out = usb.util.find_descriptor(intf, custom_match=match_endpoint_out)
 
         if self._ep_in is None or self._ep_out is None:
             raise PrinterConnectionError(
@@ -152,6 +191,8 @@ class ConnectionUSB(Connection):
 class ConnectionNetwork(Connection):
     """Network (TCP/IP) connection for Brother label printers.
 
+    The actual socket connection is established when connect() is called by the printer.
+
     Parameters
     ----------
     host : str
@@ -160,48 +201,64 @@ class ConnectionNetwork(Connection):
         TCP port number for raw printing.
     timeout : float, default 5.0
         Connection timeout in seconds. Also used for read/write operations.
-
-    Raises
-    ------
-    PrinterConnectionError
-        If the printer cannot be reached or connection fails.
     """
 
     def __init__(self, host: str, port: int = 9100, timeout: float = 5.0) -> None:
+        self._socket: socket.socket | None = None
         self.host = host
         self.port = port
         self.timeout = timeout
+
+    def connect(self, printer: LabelPrinter) -> None:
+        """Establish network connection to the printer.
+
+        Parameters
+        ----------
+        printer : LabelPrinter
+            The printer instance (not used for network connections).
+
+        Raises
+        ------
+        PrinterConnectionError
+            If the printer cannot be reached or connection fails.
+        """
+        del printer  # unused for network connections
+
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Disable Nagle's algorithm to send packets immediately
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self._socket.settimeout(timeout)
+        self._socket.settimeout(self.timeout)
 
         try:
             self._socket.connect((self.host, self.port))
         except socket.timeout as e:
             self._socket.close()
+            self._socket = None
             raise PrinterConnectionError(
-                f"Connection to printer at {host}:{port} timed out after {timeout}s",
+                f"Connection to printer at {self.host}:{self.port} timed out after {self.timeout}s",
                 original_error=e,
             ) from e
         except ConnectionRefusedError as e:
             self._socket.close()
+            self._socket = None
             raise PrinterConnectionError(
-                f"Connection refused by printer at {host}:{port}. "
+                f"Connection refused by printer at {self.host}:{self.port}. "
                 "Check if the printer is powered on and accepts network connections.",
                 original_error=e,
             ) from e
         except socket.gaierror as e:
             self._socket.close()
+            self._socket = None
             raise PrinterConnectionError(
-                f"Cannot resolve hostname '{host}'. "
+                f"Cannot resolve hostname '{self.host}'. "
                 "Check if the hostname or IP address is correct.",
                 original_error=e,
             ) from e
         except OSError as e:
             self._socket.close()
+            self._socket = None
             raise PrinterConnectionError(
-                f"Failed to connect to printer at {host}:{port}: {e}",
+                f"Failed to connect to printer at {self.host}:{self.port}: {e}",
                 original_error=e,
             ) from e
 
@@ -213,6 +270,9 @@ class ConnectionNetwork(Connection):
         PrinterConnectionError
             If writing to the printer fails or times out.
         """
+        if self._socket is None:
+            raise PrinterConnectionError("Not connected to printer")
+
         try:
             self._socket.sendall(payload)
         except socket.timeout as e:
@@ -239,6 +299,9 @@ class ConnectionNetwork(Connection):
         PrinterConnectionError
             If reading from the printer fails or times out.
         """
+        if self._socket is None:
+            raise PrinterConnectionError("Not connected to printer")
+
         try:
             return self._socket.recv(num_bytes)
         except socket.timeout as e:
@@ -259,4 +322,6 @@ class ConnectionNetwork(Connection):
 
     def close(self) -> None:
         """Close the network connection."""
-        self._socket.close()
+        if self._socket is not None:
+            self._socket.close()
+            self._socket = None

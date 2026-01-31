@@ -17,19 +17,13 @@ Example usage:
     >>> from ptouch import PTP900, ConnectionNetwork, LaminatedTape36mm, TextLabel
     >>> conn = ConnectionNetwork("192.168.1.100")
     >>> printer = PTP900(conn)
-    >>> label = TextLabel("Hello, World!", LaminatedTape36mm())
+    >>> label = TextLabel("Hello, World!", LaminatedTape36mm)
     >>> printer.print(label)
 """
 
-from .config import (
-    TapeConfig,
-    USB_PRODUCT_ID_PT_E550W,
-    USB_PRODUCT_ID_PT_P900W,
-    USB_VENDOR_ID,
-)
 from .connection import Connection, ConnectionNetwork, ConnectionUSB, PrinterConnectionError
 from .label import Align, Label, TextLabel
-from .printer import LabelPrinter, MediaType
+from .printer import LabelPrinter, MediaType, TapeConfig
 from .printers import PTE550W, PTP750W, PTP900
 from .tape import (
     HeatShrinkTape,
@@ -53,9 +47,6 @@ __all__ = [
     "Align",
     # Config
     "TapeConfig",
-    "USB_VENDOR_ID",
-    "USB_PRODUCT_ID_PT_E550W",
-    "USB_PRODUCT_ID_PT_P900W",
     # Connections
     "Connection",
     "ConnectionUSB",

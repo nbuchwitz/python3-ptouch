@@ -54,12 +54,14 @@ For USB support:
 To add support for a new P-touch printer, create a subclass of `LabelPrinter` in `ptouch/printers.py`:
 
 ```python
-from ptouch.printer import LabelPrinter
-from ptouch.config import TapeConfig
+from ptouch.printer import LabelPrinter, TapeConfig
 from ptouch.tape import LaminatedTape12mm, LaminatedTape24mm  # etc.
 
 class PTP710BT(LabelPrinter):
     """Brother PT-P710BT label printer."""
+
+    # USB product ID (required for USB connections)
+    USB_PRODUCT_ID = 0x20XX   # Replace with actual product ID
 
     # Print head specifications (from Brother raster command reference)
     TOTAL_PINS = 128          # Total pins in print head
@@ -199,7 +201,7 @@ printer.print(label, margin_mm=3.0)
 ```python
 from ptouch import ConnectionUSB, PTE550W, TextLabel, LaminatedTape12mm
 
-connection = ConnectionUSB(PTE550W)
+connection = ConnectionUSB()
 printer = PTE550W(connection)
 
 label = TextLabel(

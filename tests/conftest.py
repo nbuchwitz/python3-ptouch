@@ -22,6 +22,12 @@ class MockConnection(Connection):
     def __init__(self) -> None:
         self.data: bytes = b""
         self.closed = False
+        self.connected = False
+
+    def connect(self, printer: object) -> None:
+        """Mock connect - just mark as connected."""
+        del printer  # unused
+        self.connected = True
 
     def write(self, payload: bytes) -> None:
         """Capture data instead of sending it."""
